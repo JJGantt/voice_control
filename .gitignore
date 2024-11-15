@@ -1,0 +1,38 @@
+# macOS system files
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+venv/
+env/
+*.env
+
+# Logs
+*.log
+
+# IDEs and editors
+.vscode/
+.idea/
+
+# Byte-compiled and compiled files
+*.so
+*.o
+*.out
+*.a
+*.class
+
+# Node.js (if using Node for some parts)
+node_modules/
+npm-debug.log*
+
+# Audio files (if you're generating temporary files)
+*.wav
+*.mp3
+*.flac
+
+# PlatformIO, Arduino, or C++ build artifacts
+build/
+*.elf
+*.bin
+*.hex
