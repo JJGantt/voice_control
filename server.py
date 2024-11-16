@@ -5,57 +5,62 @@ import numpy as np
 import wave
 from dotenv import load_dotenv
 import os
-
+import uuid
 
 load_dotenv()
 api_key = os.getenv("PICO_API_KEY")
-path = os.getenv("KEYWORD_PATH")
+raspberry_path = os.getenv("RASPBERRY_PATH")
+oswald_path = os.getenv("OSWALD_PATH")
 
 app = Quart(__name__)
 
 connected_clients = {}
 
-voice_processor = VoiceProcessor(
-    access_key=api_key,
-    keyword_path=path,
-    silence_threshold=60,
-    silence_duration=0.5,
-    clients = connected_clients
-)
-
 @app.websocket('/ws/audio')
 async def audio_stream():
-    client_id = websocket.remote_addr[0]  # Use client's IP as an identifier
-    connected_clients[client_id] = websocket
+    client_id = str(uuid.uuid4())
     print(f"Client {client_id} connected")
+
+    voice_processor = VoiceProcessor(
+        access_key=api_key,
+        keyword_paths=[
+            raspberry_path,
+            oswald_path
+        ],
+        silence_threshold=60,
+        silence_duration=0.5,
+        websocket=websocket
+    )
+
+    connected_clients[client_id] = {
+        "websocket": websocket,
+        "processor": voice_processor
+    }
     
     try:
         while True:
             audio_data = await websocket.receive()
 
             if not isinstance(audio_data, bytes):
-                print(f"Invalid data type received: {type(data)}")
+                print(f"Invalid data type received: {type(audio_data)}")
                 continue
 
-            # Check for wake word detection
             if voice_processor.process_audio(audio_data):
-                print("Wake word detected, capturing audio...")
-                if client_id in connected_clients:
-                    await connected_clients[client_id].send("LED_ON")
-                    print(f"Sent LED_ON to {client_id}")
+                print(f"Wake word detected for client {client_id}")
+                await websocket.send("LED_ON")
 
             captured_audio = voice_processor.capture_audio(audio_data)
             if captured_audio:
-                print("Captured spoken command")
-                await connected_clients[client_id].send("LED_OFF")
+                print(f"Captured spoken command for client {client_id}")
+                await websocket.send("LED_OFF")
 
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Error with client {client_id}: {e}")
     finally:
         print(f"Client {client_id} disconnected")
-        connected_clients.pop(client_id, None)
+        del connected_clients[client_id]
+        voice_processor.cleanup()
 
-# Function to send a message to a specific client by ID
 async def send_to_client(client_id, command):
     if client_id in connected_clients:
         try:
